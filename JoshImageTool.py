@@ -247,7 +247,7 @@ def build_parser():
                formatter_class=argparse.RawDescriptionHelpFormatter
                )
                
-    parser.add_argument('-u', '--usage', help='Print some ussage example.', action='store_true')
+    parser.add_argument('-u', '--usage', help='Print some usage example.', action='store_true')
     sub_cmd = parser.add_subparsers(dest='sub_cmd', help='-------------------------', metavar='SUBCOMMAND')
     #sub_cmd.required=True
     
