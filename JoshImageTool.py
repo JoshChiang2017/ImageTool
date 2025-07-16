@@ -44,24 +44,20 @@ def parse_length (length_string, length_as_binary):
         print("If it is hexadecimal input, it needs to start with 0x or end with h")
         return None
 
-def file_check_worker (file):
-    if not os.path.exists(file):
-        print ("  ==> File \"%s\" doesn't exist!!!" % file)
-        return False
-    
-    filelength = os.path.getsize(file)
-    print ('    Length of \'%s\' is %.3f MB (%d)' % (file, filelength / 0x100000, filelength))
-    
-    return True
-    
-def file_check (file1, file2=None):
-    if not file_check_worker (file1):
-        return False
-
-    if (file2 != None) and (not file_check_worker (file2)):
-        return False
-
-    return True
+def file_check(*files):
+    """
+    Check if all files exist. Accepts any number of file arguments.
+    Prints file size if exists. Returns True only if all files exist.
+    """
+    all_exist = True
+    for file in files:
+        if not os.path.isfile(file):
+            print(f'  ==> File "{file}" does not exist!!!')
+            all_exist = False
+        else:
+            filelength = os.path.getsize(file)
+            print(f'    Length of "{file}" is {filelength / 0x100000:.3f} MB ({filelength} bytes)')
+    return all_exist
 
 def image_extract (filename, range_start, length_as_binary, range_end, range_length):
     
@@ -99,18 +95,14 @@ def image_extract (filename, range_start, length_as_binary, range_end, range_len
     if (start + length) > os.path.getsize(filename):
         print ("\n  ERROR!! Length or end address exceeds the file size.")
         return
-    
-    #
-    # Create new output image
-    #
-    filename_split = filename.split(".", 1)
-    prefix = filename_split[0]
-    if (len(filename_split) > 1):
-        postfix = filename_split[1]
-    else:
-        postfix = ''
-    
-    output_filename = time.strftime(prefix + "-EXTRACT_%H_%M_%S." + postfix, time.localtime())
+
+    base = os.path.basename(filename)
+    prefix, ext = os.path.splitext(base)
+    ext = ext.lstrip('.')
+    timestamp = time.strftime("%H_%M_%S", time.localtime())
+
+    output_filename = f"{prefix}-EXTRACT-{timestamp}.{ext}"
+
     original_file = open(filename, 'rb')
     output_file = open(output_filename, 'wb')
     
@@ -212,19 +204,14 @@ def image_divide (filename, length_of_first_half, length_as_binary):
     if length == None:
         return 
     
-    #
-    # Create two new output image
-    #
-    filename_split = filename.split(".", 1)
-    prefix = filename_split[0]
-    if (len(filename_split) > 1):
-        postfix = filename_split[1]
-    else:
-        postfix = ''
-    
-    filename1 = time.strftime(prefix + "-%H_%M_%S_A." + postfix, time.localtime())
-    filename2 = time.strftime(prefix + "-%H_%M_%S_B." + postfix, time.localtime())
-    
+    base = os.path.basename(filename)
+    prefix, ext = os.path.splitext(base)
+    ext = ext.lstrip('.')
+    timestamp = time.strftime("%H_%M_%S", time.localtime())
+
+    filename1 = f"{prefix}-{timestamp}_A.{ext}"
+    filename2 = f"{prefix}-{timestamp}_B.{ext}"
+
     original_file = open(filename, 'rb')
     file1 = open(filename1, 'wb')
     file2 = open(filename2, 'wb')
