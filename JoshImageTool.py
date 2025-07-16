@@ -57,7 +57,31 @@ def check_files_exist(*files):
             print(f'    Length of "{file}" is {file_size / 0x100000:.3f} MB ({file_size} bytes)')
     return all_exist
 
-def image_extract(src_file, start_addr, use_bytes, end_addr, extract_length):
+def generate_output_filenames(src_file, operation="op", output_dir=None, count=1):
+    """
+    Generate one or more output filenames based on the given operation type.
+
+    Format: {output_dir}/{filename}-{timestamp}-{operation}-{number}.{ext}
+    
+    :param src_file: Path to the input file
+    :param output_dir: Directory for output files; defaults to current working directory
+    :param operation: Operation name string (e.g., 'div', 'merge', 'ext')
+    :param count: Number of output files to generate
+    :return: List of output file paths
+    """
+    filename, ext = os.path.splitext(os.path.basename(src_file))
+    ext = ext.lstrip('.')
+    timestamp = time.strftime("%H_%M_%S", time.localtime())
+
+    if output_dir is None:
+        output_dir = os.getcwd()
+
+    return [
+        os.path.join(output_dir, f"{filename}-{timestamp}-{operation}-{i+1}.{ext}")
+        for i in range(count)
+    ]
+
+def image_extract(src_file, start_addr, use_bytes, end_addr, extract_length, output_dir=None):
     print("=============================================")
     print("<<< Extract image >>>")
     print("File                : " + src_file)
@@ -88,12 +112,8 @@ def image_extract(src_file, start_addr, use_bytes, end_addr, extract_length):
     if (start + length) > os.path.getsize(src_file):
         print("\n  ERROR!! Length or end address exceeds the file size.")
         return
-
-    base = os.path.basename(src_file)
-    prefix, ext = os.path.splitext(base)
-    ext = ext.lstrip('.')
-    timestamp = time.strftime("%H_%M_%S", time.localtime())
-    output_file = f"{prefix}-EXTRACT-{timestamp}.{ext}"
+    
+    [output_file] = generate_output_filenames(src_file, operation="extract", output_dir=output_dir)
 
     with open(src_file, 'rb') as fin, open(output_file, 'wb') as fout:
         fin.read(start)
@@ -106,25 +126,25 @@ def image_extract(src_file, start_addr, use_bytes, end_addr, extract_length):
     print("\n  Extract finish!!!\n")
     check_files_exist(output_file)
     
-def image_mix(file_a, file_b, mix_length, use_bytes):
+def image_mix(src_file_a, src_file_b, mix_length, use_bytes, output_dir=None):
     print("=============================================")
     print("<<< Mixing image >>>")
-    print("First  file   : " + file_a)
-    print("Second file   : " + file_b)
+    print("First  file   : " + src_file_a)
+    print("Second file   : " + src_file_b)
     print("Mix    length : " + mix_length)
     print("=============================================")
     print("  processing......")
 
-    if not check_files_exist(file_a, file_b):
+    if not check_files_exist(src_file_a, src_file_b):
         return
 
     length = parse_length(mix_length, use_bytes)
     if length is None:
         return
         
-    output_file = time.strftime("Mix_%H_%M_%S.bin", time.localtime())
+    [output_file] = generate_output_filenames(src_file_a, operation="mix", output_dir=output_dir)
 
-    with open(file_a, 'rb') as fa, open(file_b, 'rb') as fb, open(output_file, 'wb') as fout:
+    with open(src_file_a, 'rb') as fa, open(src_file_b, 'rb') as fb, open(output_file, 'wb') as fout:
         fout.write(fa.read(length))
         fb.read(length)
         fout.write(fb.read())
@@ -132,30 +152,30 @@ def image_mix(file_a, file_b, mix_length, use_bytes):
     print("\n  Mixing finish!!!\n")
     check_files_exist(output_file)
 
-def image_merge(file_a, file_b):
+def image_merge(src_file_a, src_file_b, output_dir=None):
     print("=============================================")
     print("<<< Merging image >>>")
-    print("First  file : " + file_a)
-    print("Second file : " + file_b)
+    print("First  file : " + src_file_a)
+    print("Second file : " + src_file_b)
     print("=============================================")
     print("  processing......")
 
-    if not check_files_exist(file_a, file_b):
+    if not check_files_exist(src_file_a, src_file_b):
         return
         
-    output_file = time.strftime("Merge_%H_%M_%S.bin", time.localtime())
+    [output_file] = generate_output_filenames(src_file_a, operation="merge", output_dir=output_dir)
 
-    with open(file_a, 'rb') as fa, open(file_b, 'rb') as fb, open(output_file, 'wb') as fout:
+    with open(src_file_a, 'rb') as fa, open(src_file_b, 'rb') as fb, open(output_file, 'wb') as fout:
         fout.write(fa.read())
         fout.write(fb.read())
 
     print("\n  Merging finish!!!\n")
     check_files_exist(output_file)
 
-def image_divide(src_file, split_length, use_bytes):
+def image_divide(src_file, split_length, use_bytes, output_dir=None):
     print("=============================================")
     print("<<< Dividing image >>>")
-    print("FileName     : " + src_file)
+    print("File         : " + src_file)
     print("Split length : " + split_length)
     print("=============================================")
     print("  processing......\n")
@@ -167,18 +187,11 @@ def image_divide(src_file, split_length, use_bytes):
     if length is None:
         return
     
-    base = os.path.basename(src_file)
-    prefix, ext = os.path.splitext(base)
-    ext = ext.lstrip('.')
-    timestamp = time.strftime("%H_%M_%S", time.localtime())
-
-    file_a = f"{prefix}-{timestamp}_A.{ext}"
-    file_b = f"{prefix}-{timestamp}_B.{ext}"
+    [file_a, file_b] = generate_output_filenames(src_file, operation="div", output_dir=output_dir, count=2)
 
     with open(src_file, 'rb') as fin, open(file_a, 'wb') as fa, open(file_b, 'wb') as fb:
         fa.write(fin.read(length))
         fb.write(fin.read())
-
     
     print("\n  Dividing finish!!!\n")
     check_files_exist(file_a, file_b)
