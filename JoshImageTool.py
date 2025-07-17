@@ -5,6 +5,8 @@ import os
 import argparse
 import textwrap
 
+MAX_DIVIDE_PARTS = 30
+
 def parse_length(length_string: str, use_bytes: bool):
     """
     Convert a numeric string (decimal or hexadecimal) to an integer length in bytes.
@@ -54,7 +56,7 @@ def check_files_exist(*files):
             all_exist = False
         else:
             file_size = os.path.getsize(file)
-            print(f'    Length of "{file}" is {file_size / 0x100000:.3f} MB ({file_size} bytes)')
+            print(f'  Length of "{file}" is {file_size / 0x100000:.3f} MB ({file_size} bytes)')
     return all_exist
 
 def generate_output_filenames(src_file, operation="op", output_dir=None, count=1):
@@ -89,7 +91,6 @@ def image_extract(src_file, start_addr, use_bytes, end_addr, extract_length, out
     print("Length      (option): " + str(extract_length))
     print("End address (option): " + str(end_addr))
     print("=============================================")
-    print("  processing......")
 
     if not check_files_exist(src_file):
         return
@@ -133,7 +134,6 @@ def image_mix(src_file_a, src_file_b, mix_length, use_bytes, output_dir=None):
     print("Second file   : " + src_file_b)
     print("Mix    length : " + mix_length)
     print("=============================================")
-    print("  processing......")
 
     if not check_files_exist(src_file_a, src_file_b):
         return
@@ -158,7 +158,6 @@ def image_merge(src_file_a, src_file_b, output_dir=None):
     print("First  file : " + src_file_a)
     print("Second file : " + src_file_b)
     print("=============================================")
-    print("  processing......")
 
     if not check_files_exist(src_file_a, src_file_b):
         return
@@ -172,29 +171,54 @@ def image_merge(src_file_a, src_file_b, output_dir=None):
     print("\n  Merging finish!!!\n")
     check_files_exist(output_file)
 
-def image_divide(src_file, split_length, use_bytes, output_dir=None):
+def image_divide(src_file, split_length, use_bytes, output_dir=None, continuous_divide=False):
     print("=============================================")
     print("<<< Dividing image >>>")
     print("File         : " + src_file)
     print("Split length : " + split_length)
+    if continuous_divide:
+        print("  Continuous divide enabled")
     print("=============================================")
-    print("  processing......\n")
 
     if not check_files_exist(src_file):
         return
         
     length = parse_length(split_length, use_bytes)
-    if length is None:
+    if length is None or length <= 0:
+        print("  ERROR: Invalid split length.")
         return
-    
-    [file_a, file_b] = generate_output_filenames(src_file, operation="div", output_dir=output_dir, count=2)
 
-    with open(src_file, 'rb') as fin, open(file_a, 'wb') as fa, open(file_b, 'wb') as fb:
-        fa.write(fin.read(length))
-        fb.write(fin.read())
-    
+    if continuous_divide:
+        file_size = os.path.getsize(src_file)
+        num_parts = (file_size // length + 1)
+        if num_parts > MAX_DIVIDE_PARTS:
+            print(f"\nError: Cannot divide the file into '{num_parts}' parts. (maximum is '{MAX_DIVIDE_PARTS}')")
+            print(f"This is a software-imposed limit to prevent excessive fragmentation.")
+            print(f"Please specify a bigger length to avoid this limit.")
+            return
+
+
+    else:
+        num_parts = 2
+    output_files = generate_output_filenames(src_file, operation="div", output_dir=output_dir, count=num_parts)
+
+    with open(src_file, 'rb') as fin:
+        if continuous_divide:
+            for i, output_file in enumerate(output_files):
+                with open(output_file, 'wb') as fout:
+                    chunk = fin.read(length)
+                    if not chunk:
+                        break
+                    fout.write(chunk)
+                print(f"  Created: {output_file}")
+
+        else:
+            with open(output_files[0], 'wb') as fa, open(output_files[1], 'wb') as fb:
+                fa.write(fin.read(length))
+                fb.write(fin.read())
+        
     print("\n  Dividing finish!!!\n")
-    check_files_exist(file_a, file_b)
+    check_files_exist(*output_files)
 
 def build_parser():
     parser = argparse.ArgumentParser(
@@ -211,6 +235,7 @@ def build_parser():
     parser_div.add_argument('file', help='Image file to split.')
     parser_div.add_argument('-l', dest='length', required=True, help='The length of the first split file. (MB as default unit)')
     parser_div.add_argument('-b', dest='use_bytes', help='Use BYTE as the unit of length', action='store_true')
+    parser_div.add_argument('-c', dest='cont_divide', help='Enable continuous dividing', action='store_true')
 
     # merge
     desc = textwrap.dedent('Merge two input images into one.')
@@ -276,7 +301,7 @@ def main():
     if args.usage:
         print(usage)
     elif args.sub_cmd == 'div':
-        image_divide (args.file, args.length, args.use_bytes)
+        image_divide (args.file, args.length, args.use_bytes, continuous_divide=args.cont_divide)
     elif args.sub_cmd == 'mer':
         image_merge (args.file1, args.file2)
     elif args.sub_cmd == 'mix':
