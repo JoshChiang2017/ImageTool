@@ -5,6 +5,7 @@ import os
 import argparse
 import textwrap
 
+__version__ = '1.0.0'
 MAX_DIVIDE_PARTS = 30
 
 def parse_length(length_string: str, use_bytes: bool):
@@ -226,6 +227,8 @@ def build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('-u', '--usage', help='Print some usage example.', action='store_true')
+    parser.add_argument('-v', '--version', action='version',  version=f'ImageTool version {__version__}')
+
     sub_cmd = parser.add_subparsers(dest='sub_cmd', help='-------------------------', metavar='SUBCOMMAND')
     #sub_cmd.required=True
 
